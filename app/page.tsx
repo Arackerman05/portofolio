@@ -323,7 +323,7 @@ export default function HomePage() {
                   <h1 className="text-4xl lg:text-5xl font-bold text-black leading-tight">
                     Hai, Saya
                     <span className="block bg-gradient-to-r from-sky-600 to-black bg-clip-text text-transparent">
-                      Abdur Rouf
+                      Abdur
                     </span>
                   </h1>
 
@@ -333,7 +333,7 @@ export default function HomePage() {
 
                   <p className="text-gray-600 text-base leading-relaxed max-w-md">
                     Fokus pada frontend interaktif dan backend yang efisien.
-                    Menciptakan solusi digital yang user friendly dan inovatif.
+                    Menciptakan solusi digital yang user-friendly dan inovatif.
                   </p>
 
                   <div className="flex items-center gap-3 pt-2">
