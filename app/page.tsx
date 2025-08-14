@@ -333,7 +333,7 @@ export default function HomePage() {
 
                   <p className="text-gray-600 text-base leading-relaxed max-w-md">
                     Fokus pada frontend interaktif dan backend yang efisien.
-                    Menciptakan solusi digital yang user-friendly dan inovatif.
+                    Menciptakan solusi digital yang user friendly dan inovatif.
                   </p>
 
                   <div className="flex items-center gap-3 pt-2">

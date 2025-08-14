@@ -1,0 +1,1 @@
+self.__REACT_LOADABLE_MANIFEST="{\"node_modules\\\\@react-three\\\\rapier\\\\dist\\\\react-three-rapier.esm.js -> @dimforge/rapier3d-compat\":{\"id\":\"node_modules\\\\@react-three\\\\rapier\\\\dist\\\\react-three-rapier.esm.js -> @dimforge/rapier3d-compat\",\"files\":[]}}"
