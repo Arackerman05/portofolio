@@ -1,10 +1,21 @@
+/* eslint-disable @next/next/no-img-element */
 "use client";
+
+import dynamic from "next/dynamic";
+import Head from "next/head";
+import { useRouter } from "next/navigation";
+import React, {
+  memo,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 
 import { BlurFade } from "@/components/magicui/blur-fade";
 import { Dock, DockIcon } from "@/components/magicui/dock";
-import { IconCloud } from "@/components/magicui/icon-cloud";
-import { Lens } from "@/components/magicui/lens";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import {
   Card,
   CardContent,
@@ -19,15 +30,14 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { lensProjects } from "@/lib/projects";
+
 import {
-  Award,
   Briefcase,
   Calendar,
+  ChevronRight,
   Code,
   Database,
   Download,
-  FolderOpen,
   Github,
   Globe,
   GraduationCap,
@@ -39,17 +49,72 @@ import {
   Palette,
   Phone,
   Smartphone,
+  Sparkles,
   Star,
   User,
   Zap,
 } from "lucide-react";
-import { useRouter } from "next/navigation";
-import { useRef } from "react";
-import Balatro from "./components/Balatro/Balatro";
-import Lanyard from "./components/Lanyard/Lanyard";
-import Stack from "./components/Stack/Stack";
 
-const images = [
+import { lensProjects } from "@/lib/projects";
+import { cn } from "@/lib/utils";
+
+/* ====== DYNAMIC IMPORT (komponen berat) ====== */
+const FaultyTerminal = dynamic(
+  () => import("./components/FaultyTerminal/FaultyTerminal"),
+  { ssr: false }
+);
+const Stack = dynamic(() => import("./components/Stack/Stack"), { ssr: false });
+const Lens = dynamic(
+  () => import("@/components/magicui/lens").then((m) => m.Lens),
+  { ssr: false }
+);
+const SmoothCursor = dynamic(
+  () =>
+    import("@/components/magicui/smooth-cursor").then((m) => m.SmoothCursor),
+  { ssr: false }
+);
+const IconCloud = dynamic(
+  () => import("@/components/magicui/icon-cloud").then((m) => m.IconCloud),
+  { ssr: false }
+);
+
+/* ====== THEME TOKENS (seragam) ====== */
+const PALETTE = {
+  dark: "#0d0d0d",
+  teal: "#003333",
+  greenDark: "#0b6648",
+  greenMid: "#439960",
+  greenLight: "#89cc89",
+  textMain: "#eafbe0",
+  textSoft: "#d9f7d9",
+  textMuted: "#cfeecf",
+  textSubtle: "#c8efc8",
+} as const;
+
+// intensitas global
+const OPACITY = {
+  surfaceA: 0.52,
+  surfaceB: 0.34,
+  border: 0.52,
+  overlayTop: 0.9,
+  overlayMid: 0.8,
+  overlayEnd: 0.6,
+} as const;
+
+// helper style panel seragam — ketik eksplisit supaya aman untuk TS
+const surfaceStyle = (
+  a: number = OPACITY.surfaceA,
+  b: number = OPACITY.surfaceB,
+  angle: number = 135
+): React.CSSProperties => ({
+  background: `linear-gradient(${angle}deg, rgba(13,13,13,${a}), rgba(0,51,51,${b}))`,
+  borderColor: `rgba(0,51,51,${OPACITY.border})`,
+});
+
+/* ====== DATA ====== */
+type HeroImage = { id: number; img: string };
+// Jangan `as const` agar tidak jadi readonly (menyesuaikan kebutuhan komponen Stack)
+const heroImages: HeroImage[] = [
   {
     id: 1,
     img: "https://images.unsplash.com/photo-1555066931-4365d14bab8c?q=80&w=500&auto=format&fit=crop",
@@ -68,746 +133,1338 @@ const images = [
   },
 ];
 
-const techImages = [
-  "https://cdn.jsdelivr.net/gh/devicons/devicon/icons/html5/html5-original.svg",
-  "https://cdn.jsdelivr.net/gh/devicons/devicon/icons/css3/css3-original.svg",
-  "https://cdn.jsdelivr.net/gh/devicons/devicon/icons/javascript/javascript-original.svg",
-  "https://cdn.jsdelivr.net/gh/devicons/devicon/icons/typescript/typescript-original.svg",
-  "https://cdn.jsdelivr.net/gh/devicons/devicon/icons/react/react-original.svg",
-  "https://cdn.jsdelivr.net/gh/devicons/devicon/icons/tailwindcss/tailwindcss-plain.svg",
-  "https://cdn.jsdelivr.net/gh/devicons/devicon/icons/java/java-original.svg",
-  "https://cdn.jsdelivr.net/gh/devicons/devicon/icons/python/python-original.svg",
-  "https://cdn.jsdelivr.net/gh/devicons/devicon/icons/mysql/mysql-original.svg",
-  "https://cdn.jsdelivr.net/gh/devicons/devicon/icons/figma/figma-original.svg",
-  "https://cdn.jsdelivr.net/gh/devicons/devicon/icons/nextjs/nextjs-original.svg",
-  "https://cdn.jsdelivr.net/gh/devicons/devicon/icons/flutter/flutter-original.svg",
-  "https://cdn.jsdelivr.net/gh/devicons/devicon/icons/dart/dart-original.svg",
-];
+// —> logo pasti muncul (termasuk Framer)
+const siteLogos = [
+  { name: "Next.js", src: "https://cdn.simpleicons.org/nextdotjs/ffffff" },
+  { name: "React", src: "https://cdn.simpleicons.org/react/61DAFB" },
+  { name: "TypeScript", src: "https://cdn.simpleicons.org/typescript/3178C6" },
+  { name: "Tailwind", src: "https://cdn.simpleicons.org/tailwindcss/38BDF8" },
+  { name: "Framer Motion", src: "https://cdn.simpleicons.org/framer/0055FF" },
+  { name: "shadcn/ui", src: "https://cdn.simpleicons.org/shadcnui/ffffff" },
+] as const;
 
-const techCategories = [
-  {
-    title: "Frontend Development",
-    icon: <Globe className="w-5 h-5" />,
-    techs: [
-      "HTML5",
-      "CSS3",
-      "JavaScript",
-      "TypeScript",
-      "React",
-      "Next.js",
-      "Tailwind CSS",
-    ],
-    description:
-      "Membangun antarmuka pengguna yang responsif dan interaktif dengan teknologi web modern.",
-  },
-  {
-    title: "Mobile Development",
-    icon: <Smartphone className="w-5 h-5" />,
-    techs: ["Flutter", "Dart"],
-    description:
-      "Mengembangkan aplikasi mobile cross-platform dengan performa native.",
-  },
-  {
-    title: "Backend & Database",
-    icon: <Database className="w-5 h-5" />,
-    techs: ["Java", "Python", "MySQL"],
-    description:
-      "Membangun sistem backend yang robust dan mengelola database dengan efisien.",
-  },
-  {
-    title: "Design & Prototyping",
-    icon: <Palette className="w-5 h-5" />,
-    techs: ["Figma"],
-    description:
-      "Merancang UI/UX yang menarik dan user-friendly dengan prototipe interaktif.",
-  },
-];
+const NAV_ITEMS = [
+  { key: "home", label: "Beranda", Icon: Home },
+  { key: "about", label: "Tentang", Icon: User },
+  { key: "education", label: "Pendidikan", Icon: GraduationCap },
+  { key: "xp", label: "Pengalaman & Proyek", Icon: Briefcase },
+  { key: "skills", label: "Keahlian", Icon: Code },
+  { key: "contact", label: "Kontak", Icon: Phone },
+] as const;
 
-export default function HomePage() {
-  const router = useRouter();
+function scrollToId(id: string) {
+  document
+    .getElementById(id)
+    ?.scrollIntoView({ behavior: "smooth", block: "start" });
+}
 
-  // Refs untuk setiap section
-  const homeRef = useRef<HTMLElement>(null);
-  const aboutRef = useRef<HTMLElement>(null);
-  const experienceRef = useRef<HTMLElement>(null);
-  const educationRef = useRef<HTMLElement>(null);
-  const projectsRef = useRef<HTMLElement>(null);
-  const skillsRef = useRef<HTMLElement>(null);
-  const contactRef = useRef<HTMLElement>(null);
+/* ====== Icon Cloud (disesuaikan dengan keahlian) ====== */
+const skillSlugs = [
+  // Frontend
+  "html5",
+  "css3",
+  "javascript",
+  "typescript",
+  "react",
+  "nextdotjs",
+  "tailwindcss",
+  // Mobile
+  "flutter",
+  "dart",
+  // Backend & DB
+  "java",
+  "python",
+  "nodedotjs",
+  "mysql",
+  // Tools / Design
+  "figma",
+  "git",
+  "github",
+  "visualstudiocode",
+] as const;
 
-  // Function untuk scroll ke section
-  const scrollToSection = (ref: React.RefObject<HTMLElement>) => {
-    ref.current?.scrollIntoView({
-      behavior: "smooth",
-      block: "start",
-    });
-  };
-
-  // Function untuk handle download CV
-  const handleDownloadCV = () => {
-    const link = document.createElement("a");
-    link.href = "/AbdurRouf_CV.pdf";
-    link.download = "AbdurRouf_CV.pdf";
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
-
-  // Function untuk handle view project
-  const handleViewProject = (projectId: string) => {
-    router.push(`/projects/${projectId}`);
-  };
+const IconCloudDemo = memo(function IconCloudDemo() {
+  const images = useMemo(
+    () =>
+      skillSlugs.map((slug) => `https://cdn.simpleicons.org/${slug}/eafbe0`),
+    []
+  );
 
   return (
-    <main className="relative h-screen overflow-hidden p-6 py-6">
-      {/* Background Balatro */}
-      <div className="absolute inset-0 -z-30">
-        <Balatro
-          isRotate={false}
-          mouseInteraction={true}
-          pixelFilter={1100}
-          color1={"123458"}
-          color2={"D4C9BE"}
-          color3={"F1EFEC"}
+    <div className="relative flex size-full items-center justify-center overflow-hidden will-change-transform">
+      <IconCloud images={images} />
+    </div>
+  );
+});
+
+export default function Page() {
+  const router = useRouter();
+
+  // === state untuk highlight dock
+  const [active, setActive] = useState<string>("home");
+  const activeRef = useRef(active);
+  useEffect(() => {
+    activeRef.current = active;
+  }, [active]);
+
+  // === RESPONSIVE / LIGHTHOUSE-FRIENDLY FLAGS
+  const [mounted, setMounted] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
+  const [reducedMotion, setReducedMotion] = useState(false);
+  const [pauseGL, setPauseGL] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+
+    // match media untuk mobile & prefers-reduced-motion
+    const mm = window.matchMedia("(max-width: 768px)");
+    const rm = window.matchMedia("(prefers-reduced-motion: reduce)");
+
+    const updateMM = () => setIsMobile(mm.matches);
+    const updateRM = () => setReducedMotion(rm.matches);
+    updateMM();
+    updateRM();
+
+    mm.addEventListener?.("change", updateMM);
+    rm.addEventListener?.("change", updateRM);
+
+    // pause WebGL saat tab tidak aktif
+    const vis = () => setPauseGL(document.hidden);
+    document.addEventListener("visibilitychange", vis);
+
+    return () => {
+      mm.removeEventListener?.("change", updateMM);
+      rm.removeEventListener?.("change", updateRM);
+      document.removeEventListener("visibilitychange", vis);
+    };
+  }, []);
+
+  // highlight dock saat scroll
+  useEffect(() => {
+    const ids = NAV_ITEMS.map((n) => n.key);
+    const obs = new IntersectionObserver(
+      (entries) => {
+        const vis = entries
+          .filter((e) => e.isIntersecting)
+          .sort((a, b) => b.intersectionRatio - a.intersectionRatio)[0];
+        if (vis?.target?.id && vis.target.id !== activeRef.current) {
+          setActive(vis.target.id);
+        }
+      },
+      { root: null, rootMargin: "0px 0px -60% 0px", threshold: [0.2, 0.4, 0.6] }
+    );
+    ids.forEach((id) => {
+      const el = document.getElementById(id);
+      if (el) obs.observe(el);
+    });
+    return () => obs.disconnect();
+  }, []);
+
+  const handleDownloadCV = useCallback(() => {
+    const a = document.createElement("a");
+    a.href = "/AbdurRouf_CV.pdf";
+    a.download = "AbdurRouf_CV.pdf";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  }, []);
+
+  const handleViewProject = useCallback(
+    (projectId: string) => router.push(`/projects/${projectId}`),
+    [router]
+  );
+
+  // ==== Style object dimemo agar tidak bikin object baru tiap render ====
+  const surface = useMemo(() => surfaceStyle(), []);
+  const surface90 = useMemo(() => surfaceStyle(0.5, 0.32, 90), []);
+  const surfaceAlt = useMemo(() => surfaceStyle(0.6, 0.3), []);
+  const chipBg = useMemo<React.CSSProperties>(
+    () => ({
+      backgroundColor: "rgba(13,13,13,0.36)",
+      border: `1px solid rgba(0,51,51,${OPACITY.border})`,
+    }),
+    []
+  );
+  const chipBgSoft = useMemo<React.CSSProperties>(
+    () => ({
+      backgroundColor: "rgba(13,13,13,0.48)",
+      border: `1px solid rgba(0,51,51,${OPACITY.border})`,
+    }),
+    []
+  );
+  const darkGlass = useMemo<React.CSSProperties>(
+    () => ({
+      backgroundColor: "rgba(13,13,13,0.58)",
+      borderColor: `rgba(0,51,51,${OPACITY.border})`,
+    }),
+    []
+  );
+
+  // ==== Background dimemo agar tidak ikut re-render ====
+  const BackgroundLayer = useMemo(
+    () => (
+      <div
+        className="fixed inset-0 -z-30"
+        style={{ backgroundColor: PALETTE.dark }}
+        aria-hidden
+      >
+        <div style={{ width: "100%", height: "100%", position: "relative" }}>
+          {/* Jika reduce motion, atau mobile, pakai mode hemat / fallback */}
+          {mounted && !reducedMotion ? (
+            isMobile ? (
+              // LITE MODE di mobile
+              <FaultyTerminal
+                pause={pauseGL}
+                scale={1.3}
+                gridMul={[2, 1]}
+                digitSize={1.2}
+                timeScale={0.22}
+                scanlineIntensity={0.35}
+                glitchAmount={1}
+                flickerAmount={0.6}
+                noiseAmp={0.6}
+                chromaticAberration={0}
+                dither={0}
+                curvature={0}
+                tint={PALETTE.greenDark}
+                mouseReact={false}
+                mouseStrength={0}
+                dpr={1}
+                pageLoadAnimation={false}
+                brightness={1.18}
+              />
+            ) : (
+              // MODE PENUH di desktop
+              <FaultyTerminal
+                pause={pauseGL}
+                scale={1.5}
+                gridMul={[2, 1]}
+                digitSize={1}
+                timeScale={1}
+                scanlineIntensity={0.6}
+                glitchAmount={0.35}
+                flickerAmount={0.28}
+                noiseAmp={0.45}
+                chromaticAberration={0}
+                dither={1}
+                curvature={0}
+                tint={PALETTE.greenDark}
+                mouseReact
+                mouseStrength={0.45}
+                pageLoadAnimation={false}
+                brightness={1.3}
+                dpr={Math.min(window.devicePixelRatio || 1, 2)}
+              />
+            )
+          ) : (
+            // Fallback static gradient bila reduce motion / belum mounted
+            <div
+              className="absolute inset-0"
+              style={{
+                background:
+                  "radial-gradient(1200px 600px at 30% 20%, rgba(67,153,96,0.20), transparent), radial-gradient(900px 500px at 80% 80%, rgba(11,102,72,0.18), transparent)",
+              }}
+            />
+          )}
+        </div>
+        {/* scrim – lebih pekat sedikit agar kontras stabil */}
+        <div
+          className="absolute inset-0 pointer-events-none bg-gradient-to-b"
+          style={{
+            backgroundImage: `linear-gradient(180deg, rgba(13,13,13,${OPACITY.overlayTop}) 0%, rgba(13,13,13,${OPACITY.overlayMid}) 55%, rgba(13,13,13,${OPACITY.overlayEnd}) 100%)`,
+          }}
         />
       </div>
+    ),
+    [mounted, isMobile, reducedMotion, pauseGL]
+  );
 
-      {/* Lanyard - Hide on mobile, no pointer events on mobile */}
-      <div className="fixed top-0 right-0 h-full w-1/3 z-0 pointer-events-none lg:pointer-events-auto hidden lg:block">
-        <Lanyard fov={8} />
-      </div>
+  return (
+    <main className="relative min-h-screen overflow-hidden font-sans tracking-tight">
+      {/* Head untuk preconnect CDN gambar */}
+      <Head>
+        <meta name="theme-color" content="#0d0d0d" />
+        <link
+          rel="preconnect"
+          href="https://images.unsplash.com"
+          crossOrigin=""
+        />
+        <link
+          rel="preconnect"
+          href="https://cdn.simpleicons.org"
+          crossOrigin=""
+        />
+      </Head>
 
-      {/* Dock Navigation */}
-      <div className="fixed bottom-8 left-1/2 transform -translate-x-1/2 z-50">
-        <TooltipProvider>
-          <Dock
-            iconSize={48}
-            iconMagnification={64}
-            iconDistance={120}
-            className="bg-white/30 backdrop-blur-md border border-white/20 shadow-lg"
-          >
-            <DockIcon
-              onClick={() => scrollToSection(homeRef)}
-              className="hover:bg-white/20 transition-colors"
-            >
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <div className="flex items-center justify-center w-full h-full cursor-pointer">
-                    <Home className="w-6 h-6 text-gray-700" />
-                  </div>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>Beranda</p>
-                </TooltipContent>
-              </Tooltip>
-            </DockIcon>
-            <DockIcon
-              onClick={() => scrollToSection(aboutRef)}
-              className="hover:bg-white/20 transition-colors"
-            >
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <div className="flex items-center justify-center w-full h-full cursor-pointer">
-                    <User className="w-6 h-6 text-gray-700" />
-                  </div>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>Tentang Saya</p>
-                </TooltipContent>
-              </Tooltip>
-            </DockIcon>
-            <DockIcon
-              onClick={() => scrollToSection(experienceRef)}
-              className="hover:bg-white/20 transition-colors"
-            >
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <div className="flex items-center justify-center w-full h-full cursor-pointer">
-                    <Briefcase className="w-6 h-6 text-gray-700" />
-                  </div>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>Pengalaman Kerja</p>
-                </TooltipContent>
-              </Tooltip>
-            </DockIcon>
-            <DockIcon
-              onClick={() => scrollToSection(educationRef)}
-              className="hover:bg-white/20 transition-colors"
-            >
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <div className="flex items-center justify-center w-full h-full cursor-pointer">
-                    <GraduationCap className="w-6 h-6 text-gray-700" />
-                  </div>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>Pendidikan</p>
-                </TooltipContent>
-              </Tooltip>
-            </DockIcon>
-            <DockIcon
-              onClick={() => scrollToSection(projectsRef)}
-              className="hover:bg-white/20 transition-colors"
-            >
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <div className="flex items-center justify-center w-full h-full cursor-pointer">
-                    <FolderOpen className="w-6 h-6 text-gray-700" />
-                  </div>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>Proyek Terakhir</p>
-                </TooltipContent>
-              </Tooltip>
-            </DockIcon>
-            <DockIcon
-              onClick={() => scrollToSection(skillsRef)}
-              className="hover:bg-white/20 transition-colors"
-            >
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <div className="flex items-center justify-center w-full h-full cursor-pointer">
-                    <Code className="w-6 h-6 text-gray-700" />
-                  </div>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>Keahlian Teknologi</p>
-                </TooltipContent>
-              </Tooltip>
-            </DockIcon>
-            <DockIcon
-              onClick={() => scrollToSection(contactRef)}
-              className="hover:bg-white/20 transition-colors"
-            >
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <div className="flex items-center justify-center w-full h-full cursor-pointer">
-                    <Phone className="w-6 h-6 text-gray-700" />
-                  </div>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>Kontak</p>
-                </TooltipContent>
-              </Tooltip>
-            </DockIcon>
-          </Dock>
-        </TooltipProvider>
-      </div>
+      {/* Smooth cursor hanya di desktop & jika tidak reduce motion */}
+      {mounted && !isMobile && !reducedMotion && <SmoothCursor />}
 
-      {/* Konten */}
-      <div
-        className="relative z-10 max-w-2xl w-full h-full overflow-y-scroll mx-auto backdrop-blur-sm bg-white/20 p-6 pt-10 pb-24 space-y-14 rounded-xl shadow-lg"
-        style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
+      {/* ==== Background (memoized) ==== */}
+      {BackgroundLayer}
+
+      {/* ====== HOME ====== */}
+      <section
+        id="home"
+        className="reduce-flicker relative z-10 px-4 md:px-6 lg:px-8 pt-12 md:pt-16 pb-8"
+        style={
+          {
+            contentVisibility: "auto",
+            containIntrinsicSize: "1200px 800px",
+          } as React.CSSProperties
+        }
       >
-        <style jsx>{`
-          div::-webkit-scrollbar {
-            display: none;
-          }
-        `}</style>
-
-        {/* Enhanced Header */}
-        <section ref={homeRef} className="space-y-6">
-          {/* Main Hero Section */}
-          <div className="relative">
-            <BlurFade delay={0.25} inView>
-              <div className="flex flex-col lg:flex-row items-start gap-6">
-                <div className="flex-1 space-y-4">
-                  <div className="inline-flex items-center gap-2 px-3 py-1 bg-sky-100/50 backdrop-blur-sm rounded-full border border-sky-200/30">
-                    <div className="w-2 h-2 bg-sky-500 rounded-full animate-pulse"></div>
-                    <span className="text-sm font-medium text-sky-700">
-                      Available for work
-                    </span>
-                  </div>
-
-                  <h1 className="text-4xl lg:text-5xl font-bold text-black leading-tight">
-                    Hai, Saya
-                    <span className="block bg-gradient-to-r from-sky-600 to-black bg-clip-text text-transparent">
-                      Abdur
-                    </span>
-                  </h1>
-
-                  <p className="text-xl text-gray-700 leading-relaxed font-medium">
-                    Fullstack Developer
-                  </p>
-
-                  <p className="text-gray-600 text-base leading-relaxed max-w-md">
-                    Fokus pada frontend interaktif dan backend yang efisien.
-                    Menciptakan solusi digital yang user-friendly dan inovatif.
-                  </p>
-
-                  <div className="flex items-center gap-3 pt-2">
-                    <Button
-                      onClick={handleDownloadCV}
-                      className="bg-black text-white hover:bg-gray-800 transition-all duration-300 flex items-center gap-2 px-6 py-2"
-                    >
-                      <Download className="w-4 h-4" />
-                      Download CV
-                    </Button>
-                    <Button
-                      variant="outline"
-                      onClick={() => scrollToSection(contactRef)}
-                      className="border-sky-200 text-sky-700 hover:bg-sky-50 transition-all duration-300"
-                    >
-                      Hubungi Saya
-                    </Button>
-                  </div>
+        <div className="mx-auto max-w-7xl">
+          <div className="grid lg:grid-cols-[1fr,1fr] gap-6 lg:gap-8 items-start">
+            {/* Left Content */}
+            <div className="space-y-4 lg:space-y-5">
+              <BlurFade delay={0.15} inView>
+                <div
+                  className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border shadow-lg ring-1 text-sm"
+                  style={{
+                    backgroundColor: "rgba(0,51,51,0.9)",
+                    borderColor: `rgba(0,51,51,${OPACITY.border})`,
+                    color: PALETTE.textMain,
+                  }}
+                >
+                  <span
+                    className="w-2 h-2 rounded-full animate-pulse"
+                    style={{ backgroundColor: PALETTE.greenLight }}
+                  />
+                  <span className="font-semibold">Available for work</span>
                 </div>
+              </BlurFade>
 
-                <div className="flex-shrink-0">
+              {/* Title */}
+              <div className="space-y-0">
+                <BlurFade delay={0.2} inView>
+                  <h1 className="text-3xl md:text-4xl xl:text-5xl font-extrabold leading-tight text-[--text-main]">
+                    Hai, Saya
+                  </h1>
+                </BlurFade>
+                <BlurFade delay={0.25} inView>
+                  <h2
+                    className="text-3xl md:text-4xl xl:text-5xl font-extrabold leading-tight"
+                    style={{
+                      backgroundImage:
+                        "linear-gradient(90deg, #89cc89, #439960, #0b6648)",
+                      WebkitBackgroundClip: "text",
+                      backgroundClip: "text",
+                      color: "transparent",
+                    }}
+                  >
+                    Abdur Rouf
+                  </h2>
+                </BlurFade>
+              </div>
+
+              <BlurFade delay={0.3} inView>
+                <p
+                  className="text-lg md:text-xl font-semibold"
+                  style={{ color: PALETTE.textMain }}
+                >
+                  Fullstack Developer
+                </p>
+              </BlurFade>
+
+              <BlurFade delay={0.35} inView>
+                <p
+                  className="text-sm md:text-base leading-relaxed"
+                  style={{ color: PALETTE.textSoft }}
+                >
+                  Fokus pada frontend interaktif dan backend yang efisien.
+                  Menciptakan solusi digital yang user-friendly dan inovatif.
+                </p>
+              </BlurFade>
+
+              {/* Highlight */}
+              <BlurFade delay={0.38} inView>
+                <div className="p-4 rounded-lg border" style={surface}>
+                  <div className="flex items-center gap-2 mb-2">
+                    <span
+                      className="w-3 h-3 rounded-full"
+                      style={{ backgroundColor: PALETTE.greenLight }}
+                    />
+                    <span
+                      className="text-sm font-semibold"
+                      style={{ color: PALETTE.textMain }}
+                    >
+                      Spesialisasi
+                    </span>
+                  </div>
+                  <p
+                    className="text-sm leading-relaxed"
+                    style={{ color: PALETTE.textSubtle }}
+                  >
+                    Mengembangkan aplikasi web modern dengan React, Next.js, dan
+                    Node.js. Berpengalaman dalam database management, API
+                    development, dan UI/UX implementation.
+                  </p>
+                </div>
+              </BlurFade>
+
+              {/* Buttons */}
+              <BlurFade delay={0.4} inView>
+                <div className="flex flex-wrap gap-2 pt-1">
+                  <Button
+                    onClick={handleDownloadCV}
+                    size="default"
+                    className="transition-all duration-300 shadow-lg hover:shadow-xl hover:scale-[1.03] px-4 py-2"
+                    style={{
+                      backgroundImage: `linear-gradient(90deg, ${PALETTE.teal}, ${PALETTE.greenDark})`,
+                      color: PALETTE.textMain,
+                    }}
+                  >
+                    <Download className="w-4 h-4 mr-2" />
+                    Download CV
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="default"
+                    onClick={() => scrollToId("contact")}
+                    className="border-2 transition-all duration-300 shadow-lg hover:shadow-xl hover:scale-[1.03] px-4 py-2"
+                    style={{
+                      borderColor: `${PALETTE.greenMid}88`,
+                      color: PALETTE.textMain,
+                      backgroundColor: "transparent",
+                    }}
+                  >
+                    <MessageCircle className="w-4 h-4 mr-2" />
+                    Hubungi Saya
+                  </Button>
+                </div>
+              </BlurFade>
+
+              {/* Stats */}
+              <div className="grid grid-cols-3 gap-2 pt-2">
+                {[
+                  { value: "6+", label: "Projects" },
+                  { value: "2+", label: "Years" },
+                  { value: "10+", label: "Tech Stack" },
+                ].map((s, i) => (
+                  <BlurFade key={s.label} delay={0.45 + i * 0.05} inView>
+                    <div
+                      className="text-center p-3 rounded-lg border shadow-lg"
+                      style={surface}
+                    >
+                      <div
+                        className="text-xl md:text-2xl font-extrabold"
+                        style={{
+                          backgroundImage:
+                            "linear-gradient(90deg, #89cc89, #439960)",
+                          WebkitBackgroundClip: "text",
+                          color: "transparent",
+                        }}
+                      >
+                        {s.value}
+                      </div>
+                      <div
+                        className="text-xs font-medium"
+                        style={{ color: PALETTE.textSoft }}
+                      >
+                        {s.label}
+                      </div>
+                    </div>
+                  </BlurFade>
+                ))}
+              </div>
+            </div>
+
+            {/* Right Content */}
+            <div className="space-y-6">
+              <BlurFade delay={0.3} inView>
+                <div className="flex justify-center lg:justify-end">
                   <div className="relative">
-                    <div className="absolute -inset-4 bg-gradient-to-r from-sky-200/20 to-transparent rounded-full blur-xl"></div>
+                    <div
+                      className="absolute -inset-4 rounded-full blur-2xl"
+                      style={{
+                        background:
+                          "linear-gradient(90deg, rgba(137,204,137,0.15), rgba(67,153,96,0.15), rgba(11,102,72,0.15))",
+                      }}
+                    />
                     <Stack
                       randomRotation
                       sensitivity={180}
                       sendToBackOnClick={false}
-                      cardDimensions={{ width: 140, height: 140 }}
-                      cardsData={images}
+                      cardDimensions={{ width: 180, height: 180 }}
+                      cardsData={heroImages}
                     />
                   </div>
                 </div>
-              </div>
-            </BlurFade>
+              </BlurFade>
+
+              {/* Skills Preview */}
+              <BlurFade delay={0.5} inView>
+                <div
+                  className="p-4 rounded-xl border shadow-lg"
+                  style={surface}
+                >
+                  <div className="flex items-center gap-2 mb-3">
+                    <Code
+                      className="w-5 h-5"
+                      style={{ color: PALETTE.greenLight }}
+                    />
+                    <h3
+                      className="text-lg font-bold"
+                      style={{ color: PALETTE.textMain }}
+                    >
+                      Core Skills
+                    </h3>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    {["Frontend", "Backend", "Database", "DevOps"].map(
+                      (skill, idx) => (
+                        <BlurFade key={skill} delay={0.55 + idx * 0.05} inView>
+                          <div
+                            className="flex items-center gap-2 p-2 rounded-lg"
+                            style={chipBg}
+                          >
+                            <span
+                              className="w-2 h-2 rounded-full"
+                              style={{ backgroundColor: PALETTE.greenLight }}
+                            />
+                            <span
+                              className="text-sm font-medium"
+                              style={{ color: PALETTE.textSubtle }}
+                            >
+                              {skill}
+                            </span>
+                          </div>
+                        </BlurFade>
+                      )
+                    )}
+                  </div>
+                </div>
+              </BlurFade>
+
+              {/* Location */}
+              <BlurFade delay={0.6} inView>
+                <div
+                  className="p-4 rounded-xl border shadow-lg"
+                  style={surface}
+                >
+                  <div className="flex items-center gap-2 mb-3">
+                    <MapPin
+                      className="w-5 h-5"
+                      style={{ color: PALETTE.greenLight }}
+                    />
+                    <h3
+                      className="text-lg font-bold"
+                      style={{ color: PALETTE.textMain }}
+                    >
+                      Location & Availability
+                    </h3>
+                  </div>
+
+                  <div className="space-y-2 mb-3">
+                    <div className="flex items-center gap-2">
+                      <Globe
+                        className="w-4 h-4"
+                        style={{ color: PALETTE.greenLight }}
+                      />
+                      <span
+                        className="text-sm"
+                        style={{ color: PALETTE.textSubtle }}
+                      >
+                        Lumajang, Jawa Timur, Indonesia
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span
+                        className="text-sm"
+                        style={{ color: PALETTE.textSubtle }}
+                      >
+                        WIB (UTC+7) • GMT+7
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span
+                        className="w-3 h-3 rounded-full animate-pulse"
+                        style={{ backgroundColor: PALETTE.greenLight }}
+                      />
+                      <span
+                        className="text-xs font-medium"
+                        style={{ color: PALETTE.textSoft }}
+                      >
+                        Available 24/7 • Flexible hours
+                      </span>
+                    </div>
+                    <div
+                      className="px-2 py-1 rounded-full text-xs font-semibold"
+                      style={{
+                        backgroundColor: "rgba(67,153,96,0.34)",
+                        color: PALETTE.textMain,
+                      }}
+                    >
+                      Remote Ready
+                    </div>
+                  </div>
+                </div>
+              </BlurFade>
+            </div>
           </div>
 
-          {/* Quick Stats */}
-          <BlurFade delay={0.5} inView>
-            <div className="grid grid-cols-3 gap-4 mt-8">
-              <div className="text-center p-4 bg-white/20 backdrop-blur-sm rounded-lg border border-white/30">
-                <div className="text-2xl font-bold text-black">6+</div>
-                <div className="text-sm text-gray-600">Projects</div>
+          {/* Built with */}
+          <BlurFade delay={0.65} inView>
+            <div
+              className="mt-8 md:mt-10 p-4 rounded-xl border shadow-xl"
+              style={surface90}
+            >
+              <div className="flex items-center justify-center gap-3 mb-3">
+                <div
+                  className="p-2 rounded-lg"
+                  style={{
+                    background:
+                      "linear-gradient(90deg, rgba(67,153,96,0.3), rgba(137,204,137,0.3))",
+                  }}
+                >
+                  <Sparkles
+                    className="w-4 h-4"
+                    style={{ color: PALETTE.greenLight }}
+                  />
+                </div>
+                <h3
+                  className="text-base md:text-lg font-bold text-center"
+                  style={{ color: PALETTE.textMain }}
+                >
+                  Website ini dibangun dengan
+                </h3>
               </div>
-              <div className="text-center p-4 bg-white/20 backdrop-blur-sm rounded-lg border border-white/30">
-                <div className="text-2xl font-bold text-black">2+</div>
-                <div className="text-sm text-gray-600">Years Learning</div>
-              </div>
-              <div className="text-center p-4 bg-white/20 backdrop-blur-sm rounded-lg border border-white/30">
-                <div className="text-2xl font-bold text-black">10+</div>
-                <div className="text-sm text-gray-600">Technologies</div>
+
+              <div className="grid grid-cols-3 sm:grid-cols-6 gap-2 md:gap-3">
+                {siteLogos.map((l, idx) => (
+                  <BlurFade key={l.name} delay={0.7 + idx * 0.05} inView>
+                    <div
+                      className="flex flex-col items-center justify-center gap-1.5 p-2 md:p-3 rounded-lg transition-all duration-300 hover:scale-105"
+                      style={chipBgSoft}
+                    >
+                      <img
+                        src={l.src}
+                        alt={l.name}
+                        className="h-6 w-6 md:h-8 md:w-8 object-contain"
+                        width={32}
+                        height={32}
+                        loading="lazy"
+                        decoding="async"
+                      />
+                      <span
+                        className="text-xs"
+                        style={{ color: PALETTE.textSubtle }}
+                      >
+                        {l.name}
+                      </span>
+                    </div>
+                  </BlurFade>
+                ))}
               </div>
             </div>
           </BlurFade>
-        </section>
+        </div>
+      </section>
 
-        {/* Enhanced About Section */}
-        <section ref={aboutRef}>
-          <BlurFade delay={0.25} inView>
-            <h2 className="text-3xl font-bold text-black mb-6 flex items-center gap-3">
-              <div className="w-8 h-8 bg-sky-100 rounded-lg flex items-center justify-center">
-                <User className="w-5 h-5 text-sky-600" />
-              </div>
+      {/* ====== ABOUT ====== */}
+      <section
+        id="about"
+        className="reduce-flicker min-h-screen flex items-center px-4 md:px-6 py-16"
+        style={
+          {
+            contentVisibility: "auto",
+            containIntrinsicSize: "1200px 900px",
+          } as React.CSSProperties
+        }
+      >
+        <div className="w-full max-w-6xl mx-auto">
+          <BlurFade inView delay={0.1}>
+            <h2
+              className="text-center text-4xl lg:text-5xl font-extrabold mb-10"
+              style={{ color: PALETTE.textMain }}
+            >
               Tentang Saya
             </h2>
           </BlurFade>
 
-          <div className="space-y-6">
-            <BlurFade delay={0.5} inView>
-              <Card className="bg-white/40 backdrop-blur-sm border border-white/30 shadow-lg hover:shadow-xl transition-all duration-300">
-                <CardContent className="p-6">
-                  <div className="space-y-4">
-                    <div className="flex items-start gap-4">
-                      <div className="w-12 h-12 bg-black/10 rounded-xl flex items-center justify-center flex-shrink-0 mt-1">
-                        <Star className="w-6 h-6 text-black" />
-                      </div>
-                      <div>
-                        <h3 className="font-semibold text-black text-lg mb-2">
-                          Profil Singkat
-                        </h3>
-                        <p className="text-gray-700 leading-relaxed text-justify">
-                          Mahasiswa semester 5 Teknologi Informasi di
-                          Universitas Widya Gama Lumajang. Passionate dalam
-                          pengembangan aplikasi web dan mobile, dengan fokus
-                          pada pembuatan solusi teknologi yang user-friendly dan
-                          efisien.
-                        </p>
-                      </div>
-                    </div>
-
-                    <div className="flex items-start gap-4">
-                      <div className="w-12 h-12 bg-black/10 rounded-xl flex items-center justify-center flex-shrink-0 mt-1">
-                        <Zap className="w-6 h-6 text-black" />
-                      </div>
-                      <div>
-                        <h3 className="font-semibold text-black text-lg mb-2">
-                          Passion & Goals
-                        </h3>
-                        <p className="text-gray-700 leading-relaxed">
-                          Senang belajar teknologi baru dan mengembangkan
-                          proyek-proyek inovatif. Berfokus pada pengembangan
-                          aplikasi yang memberikan dampak positif dan pengalaman
-                          pengguna yang luar biasa.
-                        </p>
-                      </div>
-                    </div>
-
-                    <div className="pt-4 border-t border-white/20">
-                      <div className="grid grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                          <div className="text-sm font-semibold text-black">
-                            Lokasi
-                          </div>
-                          <div className="text-sm text-gray-600 flex items-center gap-2">
-                            <MapPin className="w-4 h-4" />
-                            Lumajang, Jawa Timur
-                          </div>
-                        </div>
-                        <div className="space-y-2">
-                          <div className="text-sm font-semibold text-black">
-                            Status
-                          </div>
-                          <div className="text-sm text-gray-600">
-                            Mahasiswa & Developer
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </BlurFade>
-          </div>
-        </section>
-
-        {/* Work Experience - Enhanced with consistent colors */}
-        <section ref={experienceRef}>
-          <BlurFade delay={0.25} inView>
-            <h2 className="text-3xl font-bold text-black mb-6 flex items-center gap-3">
-              <div className="w-8 h-8 bg-sky-100 rounded-lg flex items-center justify-center">
-                <Briefcase className="w-5 h-5 text-sky-600" />
-              </div>
-              Pengalaman & Proyek
-            </h2>
-          </BlurFade>
-          <div className="space-y-4">
-            <BlurFade delay={0.5} inView>
-              <Card className="bg-white/40 backdrop-blur-sm border border-white/30 shadow-lg hover:shadow-xl transition-all duration-300">
-                <CardHeader className="pb-3">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 bg-black/10 rounded-lg">
-                      <Code className="w-5 h-5 text-black" />
-                    </div>
-                    <div>
-                      <CardTitle className="text-lg text-black">
-                        Fullstack Developer (Personal Projects)
-                      </CardTitle>
-                      <CardDescription className="text-gray-600 flex items-center gap-2">
-                        <Calendar className="w-4 h-4" />
-                        2023 - Sekarang
-                      </CardDescription>
-                    </div>
-                  </div>
-                </CardHeader>
-                <CardContent className="pt-0">
-                  <ul className="space-y-2 text-gray-800">
-                    <li className="flex items-start gap-2">
-                      <div className="w-1.5 h-1.5 bg-black rounded-full mt-2 flex-shrink-0"></div>
-                      <span>
-                        Mengembangkan aplikasi mobile dengan Flutter
-                        terintegrasi admin-user
-                      </span>
-                    </li>
-                    <li className="flex items-start gap-2">
-                      <div className="w-1.5 h-1.5 bg-black rounded-full mt-2 flex-shrink-0"></div>
-                      <span>
-                        Membangun sistem desktop dengan Java untuk berbagai
-                        kebutuhan bisnis
-                      </span>
-                    </li>
-                    <li className="flex items-start gap-2">
-                      <div className="w-1.5 h-1.5 bg-black rounded-full mt-2 flex-shrink-0"></div>
-                      <span>
-                        Merancang UI/UX dengan Figma untuk aplikasi modern
-                      </span>
-                    </li>
-                    <li className="flex items-start gap-2">
-                      <div className="w-1.5 h-1.5 bg-black rounded-full mt-2 flex-shrink-0"></div>
-                      <span>
-                        Implementasi algoritma pengambilan keputusan dengan
-                        metode SAW
-                      </span>
-                    </li>
-                  </ul>
-                </CardContent>
-              </Card>
-            </BlurFade>
-
-            <BlurFade delay={0.7} inView>
-              <Card className="bg-white/40 backdrop-blur-sm border border-white/30 shadow-lg hover:shadow-xl transition-all duration-300">
-                <CardHeader className="pb-3">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 bg-black/10 rounded-lg">
-                      <Award className="w-5 h-5 text-black" />
-                    </div>
-                    <div>
-                      <CardTitle className="text-lg text-black">
-                        Key Achievements
-                      </CardTitle>
-                      <CardDescription className="text-gray-600">
-                        Pencapaian dalam Pengembangan Proyek
-                      </CardDescription>
-                    </div>
-                  </div>
-                </CardHeader>
-                <CardContent className="pt-0">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="bg-gradient-to-r from-gray-50 to-gray-100 p-4 rounded-lg border border-gray-200">
-                      <div className="text-2xl font-bold text-black">6+</div>
-                      <div className="text-sm text-gray-600">
-                        Proyek Selesai
-                      </div>
-                    </div>
-                    <div className="bg-gradient-to-r from-gray-50 to-gray-100 p-4 rounded-lg border border-gray-200">
-                      <div className="text-2xl font-bold text-black">10+</div>
-                      <div className="text-sm text-gray-600">
-                        Teknologi Dikuasai
-                      </div>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </BlurFade>
-          </div>
-        </section>
-
-        {/* Education - Enhanced with consistent colors */}
-        <section ref={educationRef}>
-          <BlurFade delay={0.25} inView>
-            <h2 className="text-3xl font-bold text-black mb-6 flex items-center gap-3">
-              <div className="w-8 h-8 bg-sky-100 rounded-lg flex items-center justify-center">
-                <GraduationCap className="w-5 h-5 text-sky-600" />
-              </div>
-              Pendidikan
-            </h2>
-          </BlurFade>
-          <div className="space-y-4">
-            <BlurFade delay={0.5} inView>
-              <Card className="bg-white/40 backdrop-blur-sm border border-white/30 shadow-lg hover:shadow-xl transition-all duration-300">
-                <CardHeader className="pb-3">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 bg-black/10 rounded-lg">
-                      <GraduationCap className="w-5 h-5 text-black" />
-                    </div>
-                    <div className="flex-1">
-                      <CardTitle className="text-lg text-black">
-                        Institut Teknologi dan Bisnis Widya Gama Lumajang
-                      </CardTitle>
-                      <CardDescription className="text-gray-600">
-                        S1 Teknologi Informasi
-                      </CardDescription>
-                    </div>
-                    <div className="text-right">
-                      <div className="text-sm font-semibold text-black">
-                        Semester 5
-                      </div>
-                      <div className="text-xs text-gray-500">
-                        2022 - Sekarang
-                      </div>
-                    </div>
-                  </div>
-                </CardHeader>
-                <CardContent className="pt-0">
-                  <div className="flex items-center gap-2 text-gray-600">
-                    <MapPin className="w-4 h-4" />
-                    <span className="text-sm">Lumajang, Jawa Timur</span>
-                  </div>
-                </CardContent>
-              </Card>
-            </BlurFade>
-
-            <BlurFade delay={0.7} inView>
-              <Card className="bg-white/40 backdrop-blur-sm border border-white/30 shadow-lg hover:shadow-xl transition-all duration-300">
-                <CardHeader className="pb-3">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 bg-black/10 rounded-lg">
-                      <GraduationCap className="w-5 h-5 text-black" />
-                    </div>
-                    <div className="flex-1">
-                      <CardTitle className="text-lg text-black">
-                        MA Raudhlatul Ulum
-                      </CardTitle>
-                      <CardDescription className="text-gray-600">
-                        Madrasah Aliyah
-                      </CardDescription>
-                    </div>
-                    <div className="text-right">
-                      <div className="text-sm font-semibold text-black">
-                        Lulus
-                      </div>
-                      <div className="text-xs text-gray-500">2019 - 2022</div>
-                    </div>
-                  </div>
-                </CardHeader>
-              </Card>
-            </BlurFade>
-
-            <BlurFade delay={0.9} inView>
-              <Card className="bg-white/40 backdrop-blur-sm border border-white/30 shadow-lg hover:shadow-xl transition-all duration-300">
-                <CardHeader className="pb-3">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 bg-black/10 rounded-lg">
-                      <GraduationCap className="w-5 h-5 text-black" />
-                    </div>
-                    <div className="flex-1">
-                      <CardTitle className="text-lg text-black">
-                        MTs Raudhlatul Ulum
-                      </CardTitle>
-                      <CardDescription className="text-gray-600">
-                        Madrasah Tsanawiyah
-                      </CardDescription>
-                    </div>
-                    <div className="text-right">
-                      <div className="text-sm font-semibold text-black">
-                        Lulus
-                      </div>
-                      <div className="text-xs text-gray-500">2016 - 2019</div>
-                    </div>
-                  </div>
-                </CardHeader>
-              </Card>
-            </BlurFade>
-
-            <BlurFade delay={1.1} inView>
-              <Card className="bg-white/40 backdrop-blur-sm border border-white/30 shadow-lg hover:shadow-xl transition-all duration-300">
-                <CardHeader className="pb-3">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 bg-black/10 rounded-lg">
-                      <GraduationCap className="w-5 h-5 text-black" />
-                    </div>
-                    <div className="flex-1">
-                      <CardTitle className="text-lg text-black">
-                        MI Bustanul Ulum
-                      </CardTitle>
-                      <CardDescription className="text-gray-600">
-                        Madrasah Ibtidaiyah
-                      </CardDescription>
-                    </div>
-                    <div className="text-right">
-                      <div className="text-sm font-semibold text-black">
-                        Lulus
-                      </div>
-                      <div className="text-xs text-gray-500">2010 - 2016</div>
-                    </div>
-                  </div>
-                </CardHeader>
-              </Card>
-            </BlurFade>
-          </div>
-        </section>
-
-        {/* Enhanced Projects with better Lens cards */}
-        <section ref={projectsRef} className="space-y-6">
-          <BlurFade delay={0.25} inView>
-            <h2 className="text-3xl font-bold text-black mb-6 flex items-center gap-3">
-              <div className="w-8 h-8 bg-sky-100 rounded-lg flex items-center justify-center">
-                <FolderOpen className="w-5 h-5 text-sky-600" />
-              </div>
-              Proyek Terakhir
-            </h2>
-          </BlurFade>
-          <BlurFade delay={0.5} inView>
-            <div className="flex flex-col lg:flex-row lg:space-x-6 lg:overflow-x-auto lg:scrollbar-thin lg:scrollbar-thumb-gray-300 space-y-6 lg:space-y-0">
-              {lensProjects && lensProjects.length > 0 ? (
-                lensProjects.map((project, idx) => (
-                  <Card
-                    key={idx}
-                    className="relative w-full lg:max-w-md bg-white/50 backdrop-blur-sm border border-white/40 shadow-xl hover:shadow-2xl transition-all duration-300 hover:scale-[1.02] lg:flex-shrink-0 group"
-                  >
-                    <CardHeader className="p-0">
-                      <div className="relative overflow-hidden rounded-t-lg">
-                        <Lens zoomFactor={2.5} lensSize={200} isStatic={false}>
-                          <img
-                            src={project.img}
-                            alt={project.title}
-                            width={500}
-                            height={500}
-                            className="object-cover h-48 w-full transition-transform duration-300 group-hover:scale-110"
-                          />
-                        </Lens>
-                        <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent"></div>
-                      </div>
-                    </CardHeader>
-                    <CardContent className="px-6 py-4">
-                      <div className="space-y-3">
-                        <CardTitle className="text-xl text-black mb-2 leading-tight font-bold">
-                          {project.title}
-                        </CardTitle>
-                        <CardDescription className="text-gray-700 leading-relaxed text-sm">
-                          {project.description}
-                        </CardDescription>
-                        <div className="flex flex-wrap gap-2 pt-2">
-                          {project.tech.slice(0, 3).map((tech, techIdx) => (
-                            <span
-                              key={techIdx}
-                              className="px-2 py-1 bg-gray-100 text-black text-xs rounded-full font-medium"
-                            >
-                              {tech}
-                            </span>
-                          ))}
-                          {project.tech.length > 3 && (
-                            <span className="px-2 py-1 bg-gray-100 text-gray-600 text-xs rounded-full font-medium">
-                              +{project.tech.length - 3} more
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    </CardContent>
-                    <CardFooter className="px-6 pb-6 pt-2">
-                      <Button
-                        onClick={() => handleViewProject(project.id)}
-                        className="bg-black hover:bg-gray-800 text-white w-full transition-all duration-300 hover:shadow-lg"
+          {/* Main Profile Card */}
+          <BlurFade inView delay={0.15}>
+            <Card className="mb-8 border shadow-2xl" style={surfaceAlt}>
+              <CardContent className="p-8 md:p-10">
+                <div className="grid md:grid-cols-[auto,1fr] gap-8 items-start">
+                  {/* Profile Avatar/Icon */}
+                  <div className="flex justify-center md:justify-start">
+                    <div className="relative">
+                      <div
+                        className="w-24 h-24 md:w-32 md:h-32 rounded-3xl flex items-center justify-center"
+                        style={{
+                          background:
+                            "linear-gradient(135deg, rgba(0,51,51,0.4), rgba(67,153,96,0.4))",
+                        }}
                       >
-                        View Project
-                      </Button>
-                    </CardFooter>
-                  </Card>
-                ))
-              ) : (
-                <div className="text-center py-8 text-gray-600">
-                  <p>No projects available</p>
-                </div>
-              )}
-            </div>
-          </BlurFade>
-        </section>
+                        <User
+                          className="w-12 h-12 md:w-16 md:h-16"
+                          style={{ color: PALETTE.greenLight }}
+                        />
+                      </div>
+                      {/* Animated ring */}
+                      <div
+                        className="absolute -inset-2 rounded-3xl animate-pulse"
+                        style={{
+                          background: `linear-gradient(135deg, ${PALETTE.greenLight}20, ${PALETTE.greenMid}20)`,
+                          filter: "blur(8px)",
+                        }}
+                      />
+                    </div>
+                  </div>
 
-        {/* Enhanced Tech Skills with categories */}
-        <section ref={skillsRef}>
-          <BlurFade delay={0.25} inView>
-            <h2 className="text-3xl font-bold text-black mb-6 flex items-center gap-3">
-              <div className="w-8 h-8 bg-sky-100 rounded-lg flex items-center justify-center">
-                <Code className="w-5 h-5 text-sky-600" />
-              </div>
+                  {/* Profile Text */}
+                  <div className="text-center md:text-left space-y-4">
+                    <h3
+                      className="text-2xl md:text-3xl font-bold"
+                      style={{ color: PALETTE.textMain }}
+                    >
+                      Abdur Rouf
+                    </h3>
+                    <p
+                      className="text-lg font-semibold"
+                      style={{ color: PALETTE.greenLight }}
+                    >
+                      Fullstack Developer & Student
+                    </p>
+                    <p
+                      className="text-base leading-relaxed max-w-2xl"
+                      style={{ color: PALETTE.textMuted }}
+                    >
+                      Mahasiswa semester 5 Teknologi Informasi di Universitas
+                      Widya Gama Lumajang. Passionate dalam pengembangan
+                      aplikasi web dan mobile dengan fokus pada solusi teknologi
+                      yang efisien dan inovatif.
+                    </p>
+
+                    {/* Quick Stats */}
+                    <div className="flex flex-wrap gap-4 pt-2">
+                      {[
+                        {
+                          icon: Calendar,
+                          label: "Semester 5",
+                          value: "2022-Now",
+                        },
+                        {
+                          icon: MapPin,
+                          label: "Lumajang",
+                          value: "Jawa Timur",
+                        },
+                        { icon: Zap, label: "Status", value: "Available" },
+                      ].map((stat) => (
+                        <div
+                          key={stat.label}
+                          className="flex items-center gap-2"
+                        >
+                          <stat.icon
+                            className="w-4 h-4"
+                            style={{ color: PALETTE.greenLight }}
+                          />
+                          <span
+                            className="text-sm"
+                            style={{ color: PALETTE.textSoft }}
+                          >
+                            <strong>{stat.value}</strong> {stat.label}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </BlurFade>
+
+          {/* Feature Cards Grid */}
+          <div className="grid md:grid-cols-3 gap-4 md:gap-6">
+            {[
+              {
+                Icon: Star,
+                title: "Passion & Goals",
+                desc: "Senang belajar teknologi baru dan mengembangkan proyek inovatif yang berdampak positif.",
+                gradient: "from-[#003333]/30 to-[#439960]/30",
+              },
+              {
+                Icon: Zap,
+                title: "Work Style",
+                desc: "Aktif mencari pengalaman dan tantangan baru dalam dunia teknologi informasi.",
+                gradient: "from-[#439960]/30 to-[#89cc89]/30",
+              },
+              {
+                Icon: Globe,
+                title: "Vision",
+                desc: "Berkontribusi dalam ekosistem teknologi Indonesia melalui solusi digital yang bermakna.",
+                gradient: "from-[#0b6648]/30 to-[#89cc89]/30",
+              },
+            ].map(({ Icon, title, desc, gradient }, i) => (
+              <BlurFade key={title} inView delay={0.2 + i * 0.1}>
+                <Card
+                  className="group h-full border shadow-xl hover:shadow-2xl transition-all duration-500 hover:scale-105"
+                  style={surface}
+                >
+                  <CardContent className="p-6">
+                    <div
+                      className={`w-14 h-14 rounded-2xl flex items-center justify-center mb-4 bg-gradient-to-br ${gradient} group-hover:scale-110 transition-transform duration-300`}
+                    >
+                      <Icon
+                        className="w-7 h-7"
+                        style={{ color: PALETTE.greenLight }}
+                      />
+                    </div>
+                    <h3
+                      className="font-bold text-lg mb-3"
+                      style={{ color: PALETTE.textMain }}
+                    >
+                      {title}
+                    </h3>
+                    <p
+                      className="text-sm leading-relaxed"
+                      style={{ color: PALETTE.textMuted }}
+                    >
+                      {desc}
+                    </p>
+                  </CardContent>
+                </Card>
+              </BlurFade>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ====== EDUCATION ====== */}
+      <section
+        id="education"
+        className="reduce-flicker relative z-10 px-6 md:px-8 lg:px-12 py-16 md:py-20"
+        style={
+          {
+            contentVisibility: "auto",
+            containIntrinsicSize: "1200px 900px",
+          } as React.CSSProperties
+        }
+      >
+        <div className="mx-auto max-w-6xl">
+          <div className="text-center mb-12">
+            <BlurFade delay={0.15} inView>
+              <h2
+                className="text-3xl md:text-4xl lg:text-5xl font-extrabold"
+                style={{ color: PALETTE.textMain }}
+              >
+                Perjalanan Pendidikan
+              </h2>
+            </BlurFade>
+            <BlurFade delay={0.2} inView>
+              <p
+                className="text-lg mt-4 max-w-2xl mx-auto"
+                style={{ color: PALETTE.textMuted }}
+              >
+                Timeline pendidikan yang membentuk fondasi pengetahuan saya
+              </p>
+            </BlurFade>
+          </div>
+
+          {/* Timeline Container */}
+          <div className="relative">
+            {/* Timeline Line */}
+            <div
+              className="absolute left-6 md:left-1/2 top-0 bottom-0 w-0.5 md:-ml-px"
+              style={{ backgroundColor: `${PALETTE.greenMid}40` }}
+            />
+
+            <div className="space-y-8 md:space-y-12">
+              {[
+                {
+                  name: "Institut Teknologi dan Bisnis Widya Gama Lumajang",
+                  degree: "S1 Teknologi Informasi",
+                  period: "2022 - Sekarang",
+                  status: "Semester 5",
+                  isActive: true,
+                  icon: GraduationCap,
+                  details:
+                    "Fokus pada pengembangan aplikasi dan sistem informasi",
+                  color: "from-[#003333]/35 to-[#0b6648]/35",
+                  position: "left",
+                },
+                {
+                  name: "MA Raudhlatul Ulum",
+                  degree: "Madrasah Aliyah",
+                  period: "2019 - 2022",
+                  status: "Lulus",
+                  isActive: false,
+                  icon: GraduationCap,
+                  details: "Pendidikan menengah atas dengan fokus akademik",
+                  color: "from-[#439960]/35 to-[#89cc89]/35",
+                  position: "right",
+                },
+                {
+                  name: "MTs Raudhlatul Ulum",
+                  degree: "Madrasah Tsanawiyah",
+                  period: "2016 - 2019",
+                  status: "Lulus",
+                  isActive: false,
+                  icon: GraduationCap,
+                  details:
+                    "Pendidikan menengah pertama dengan dasar akademik yang kuat",
+                  color: "from-[#003333]/35 to-[#439960]/35",
+                  position: "left",
+                },
+                {
+                  name: "MI Bustanul Ulum",
+                  degree: "Madrasah Ibtidaiyah",
+                  period: "2010 - 2016",
+                  status: "Lulus",
+                  isActive: false,
+                  icon: GraduationCap,
+                  details: "Fondasi pendidikan dasar dan pembentukan karakter",
+                  color: "from-[#0b6648]/35 to-[#89cc89]/35",
+                  position: "right",
+                },
+              ].map((edu, idx) => (
+                <BlurFade key={edu.name} delay={0.25 + idx * 0.1} inView>
+                  <div
+                    className={`relative flex items-center ${
+                      edu.position === "left"
+                        ? "md:flex-row"
+                        : "md:flex-row-reverse"
+                    } gap-4 md:gap-8`}
+                  >
+                    {/* Timeline Node */}
+                    <div className="absolute left-6 md:left-1/2 md:-ml-6 z-10 -ml-6">
+                      <div
+                        className={`w-12 h-12 rounded-full flex items-center justify-center border-4 ${
+                          edu.isActive ? "animate-pulse" : ""
+                        }`}
+                        style={{
+                          backgroundColor: PALETTE.dark,
+                          borderColor: edu.isActive
+                            ? PALETTE.greenLight
+                            : PALETTE.greenMid,
+                        }}
+                      >
+                        <edu.icon
+                          className="w-5 h-5"
+                          style={{
+                            color: edu.isActive
+                              ? PALETTE.greenLight
+                              : PALETTE.greenMid,
+                          }}
+                        />
+                      </div>
+                      {edu.isActive && (
+                        <div
+                          className="absolute -inset-2 rounded-full animate-ping"
+                          style={{ backgroundColor: `${PALETTE.greenLight}20` }}
+                        />
+                      )}
+                    </div>
+
+                    {/* Content Card */}
+                    <div className="w-full md:w-5/12 ml-16 md:ml-0">
+                      <Card
+                        className="group border shadow-xl hover:shadow-2xl transition-all duration-300 hover:scale-105"
+                        style={surface}
+                      >
+                        <CardContent className="p-4 md:p-6">
+                          {/* Mobile Layout */}
+                          <div className="md:hidden">
+                            <div className="flex items-center gap-3 mb-3">
+                              <div
+                                className={`p-2 rounded-lg bg-gradient-to-r ${edu.color} group-hover:scale-110 transition-transform duration-300`}
+                              >
+                                <edu.icon
+                                  className="w-5 h-5"
+                                  style={{ color: PALETTE.textMain }}
+                                />
+                              </div>
+                              <span
+                                className={`px-3 py-1 rounded-full text-xs font-bold ml-auto ${
+                                  edu.isActive ? "animate-pulse" : ""
+                                }`}
+                                style={{
+                                  backgroundColor: edu.isActive
+                                    ? `${PALETTE.greenLight}20`
+                                    : `${PALETTE.greenMid}20`,
+                                  color: edu.isActive
+                                    ? PALETTE.greenLight
+                                    : PALETTE.greenMid,
+                                }}
+                              >
+                                {edu.status}
+                              </span>
+                            </div>
+
+                            <h3
+                              className="font-bold text-base mb-1"
+                              style={{ color: PALETTE.textMain }}
+                            >
+                              {edu.name}
+                            </h3>
+                            <p
+                              className="text-sm font-semibold mb-2"
+                              style={{ color: PALETTE.greenLight }}
+                            >
+                              {edu.degree}
+                            </p>
+                            <p
+                              className="text-xs mb-3 leading-relaxed"
+                              style={{ color: PALETTE.textMuted }}
+                            >
+                              {edu.details}
+                            </p>
+                            <span
+                              className="text-xs font-medium"
+                              style={{ color: PALETTE.textSoft }}
+                            >
+                              {edu.period}
+                            </span>
+                          </div>
+
+                          {/* Desktop Layout */}
+                          <div className="hidden md:flex items-start gap-4">
+                            <div
+                              className={`p-3 rounded-xl bg-gradient-to-r ${edu.color} group-hover:scale-110 transition-transform duration-300`}
+                            >
+                              <edu.icon
+                                className="w-6 h-6"
+                                style={{ color: PALETTE.textMain }}
+                              />
+                            </div>
+                            <div className="flex-1">
+                              <h3
+                                className="font-bold text-lg mb-1"
+                                style={{ color: PALETTE.textMain }}
+                              >
+                                {edu.name}
+                              </h3>
+                              <p
+                                className="text-base font-semibold mb-2"
+                                style={{ color: PALETTE.greenLight }}
+                              >
+                                {edu.degree}
+                              </p>
+                              <p
+                                className="text-sm mb-3"
+                                style={{ color: PALETTE.textMuted }}
+                              >
+                                {edu.details}
+                              </p>
+                              <div className="flex items-center justify-between">
+                                <span
+                                  className="text-sm font-medium"
+                                  style={{ color: PALETTE.textSoft }}
+                                >
+                                  {edu.period}
+                                </span>
+                                <span
+                                  className={`px-3 py-1 rounded-full text-xs font-bold ${
+                                    edu.isActive ? "animate-pulse" : ""
+                                  }`}
+                                  style={{
+                                    backgroundColor: edu.isActive
+                                      ? `${PALETTE.greenLight}20`
+                                      : `${PALETTE.greenMid}20`,
+                                    color: edu.isActive
+                                      ? PALETTE.greenLight
+                                      : PALETTE.greenMid,
+                                  }}
+                                >
+                                  {edu.status}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </div>
+                  </div>
+                </BlurFade>
+              ))}
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ====== EXPERIENCE + PROJECTS ====== */}
+      <section
+        id="xp"
+        className="reduce-flicker relative z-10 px-6 md:px-8 lg:px-12 py-16 md:py-20"
+        style={
+          {
+            contentVisibility: "auto",
+            containIntrinsicSize: "1200px 1200px",
+          } as React.CSSProperties
+        }
+      >
+        <div className="mx-auto max-w-7xl">
+          <div className="text-center mb-8">
+            <BlurFade delay={0.15} inView>
+              <h2
+                className="text-3xl md:text-4xl lg:text-5xl font-extrabold"
+                style={{ color: PALETTE.textMain }}
+              >
+                Pengalaman & Proyek
+              </h2>
+            </BlurFade>
+          </div>
+
+          <BlurFade delay={0.2} inView>
+            <Card
+              className="bg-gradient-to-r backdrop-blur-sm border shadow-xl mb-8"
+              style={surface90}
+            >
+              <CardHeader className="pb-4">
+                <div className="flex items-center gap-4">
+                  <div
+                    className="p-3 rounded-xl"
+                    style={{
+                      background:
+                        "linear-gradient(90deg, rgba(67,153,96,0.32), rgba(137,204,137,0.32))",
+                    }}
+                  >
+                    <Code
+                      className="w-6 h-6"
+                      style={{ color: PALETTE.greenLight }}
+                    />
+                  </div>
+                  <div>
+                    <CardTitle
+                      className="text-xl"
+                      style={{ color: PALETTE.textMain }}
+                    >
+                      Fullstack Developer
+                    </CardTitle>
+                    <CardDescription
+                      className="flex items-center gap-2 mt-1"
+                      style={{ color: PALETTE.textMuted }}
+                    >
+                      <Calendar className="w-4 h-4" />
+                      2023 - Sekarang • Personal Projects
+                    </CardDescription>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className="grid md:grid-cols-2 gap-3">
+                  {[
+                    "Flutter app admin–user",
+                    "Sistem desktop Java untuk bisnis",
+                    "UI/UX modern dengan Figma",
+                    "Keputusan berbasis metode SAW",
+                  ].map((item, idx) => (
+                    <BlurFade key={item} delay={0.25 + idx * 0.05} inView>
+                      <div
+                        className="flex items-start gap-3 p-3 rounded-lg"
+                        style={{
+                          backgroundColor: "rgba(13,13,13,0.5)",
+                          border: `1px solid rgba(0,51,51,${OPACITY.border})`,
+                          color: PALETTE.textSoft,
+                        }}
+                      >
+                        <ChevronRight
+                          className="w-5 h-5 mt-0.5 flex-shrink-0"
+                          style={{ color: PALETTE.greenMid }}
+                        />
+                        <span>{item}</span>
+                      </div>
+                    </BlurFade>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          </BlurFade>
+
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 items-stretch">
+            {lensProjects.map((project, idx) => (
+              <BlurFade key={project.id ?? idx} delay={0.3 + idx * 0.05} inView>
+                <Card
+                  className="group relative h-full bg-gradient-to-br backdrop-blur-sm border shadow-xl hover:shadow-2xl transition-all duration-300 hover:scale-[1.02] overflow-hidden"
+                  style={surface}
+                >
+                  <CardHeader className="p-0">
+                    <div className="relative overflow-hidden h-44">
+                      <Lens
+                        zoomFactor={isMobile ? 1.35 : 2}
+                        lensSize={isMobile ? 110 : 150}
+                        isStatic={isMobile || reducedMotion}
+                      >
+                        <img
+                          src={project.img}
+                          alt={project.title}
+                          className="object-cover w-full h-full group-hover:scale-110 transition-transform duration-500 will-change-transform"
+                          loading="lazy"
+                          decoding="async"
+                        />
+                      </Lens>
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                    </div>
+                  </CardHeader>
+                  <CardContent className="p-5">
+                    <CardTitle
+                      className="text-lg mb-2"
+                      style={{ color: PALETTE.textMain }}
+                    >
+                      {project.title}
+                    </CardTitle>
+                    <CardDescription
+                      className="mb-4 line-clamp-2"
+                      style={{ color: PALETTE.textMuted }}
+                    >
+                      {project.description}
+                    </CardDescription>
+                    <div className="flex flex-wrap gap-2 mb-2">
+                      {project.tech.slice(0, 3).map((tech) => (
+                        <span
+                          key={tech}
+                          className="px-3 py-1 text-[11px] rounded-full font-medium border"
+                          style={{
+                            background:
+                              "linear-gradient(90deg, rgba(13,13,13,0.5), rgba(0,51,51,0.28))",
+                            color: PALETTE.textSoft,
+                            borderColor: `rgba(0,51,51,${OPACITY.border})`,
+                          }}
+                        >
+                          {tech}
+                        </span>
+                      ))}
+                      {project.tech.length > 3 && (
+                        <span
+                          className="px-3 py-1 text-[11px] rounded-full font-medium border"
+                          style={{
+                            background:
+                              "linear-gradient(90deg, rgba(13,13,13,0.5), rgba(0,51,51,0.28))",
+                            color: "#9fdc9f",
+                            borderColor: `rgba(0,51,51,${OPACITY.border})`,
+                          }}
+                        >
+                          +{project.tech.length - 3}
+                        </span>
+                      )}
+                    </div>
+                  </CardContent>
+                  <CardFooter className="mt-auto px-5 pb-5">
+                    <Button
+                      onClick={() => handleViewProject(project.id)}
+                      className="w-full transition-all duration-300"
+                      style={{
+                        backgroundImage: `linear-gradient(90deg, ${PALETTE.teal}, ${PALETTE.greenDark})`,
+                        color: PALETTE.textMain,
+                      }}
+                    >
+                      View Project
+                      <ChevronRight className="w-4 h-4 ml-2" />
+                    </Button>
+                  </CardFooter>
+                </Card>
+              </BlurFade>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ====== SKILLS ====== */}
+      <section
+        id="skills"
+        className="reduce-flicker min-h-screen flex items-center px-4 md:px-6 py-16"
+        style={
+          {
+            contentVisibility: "auto",
+            containIntrinsicSize: "1200px 900px",
+          } as React.CSSProperties
+        }
+      >
+        <div className="w-full max-w-7xl mx-auto">
+          <BlurFade inView delay={0.1}>
+            <h2
+              className="text-center text-4xl lg:text-5xl font-extrabold mb-10"
+              style={{ color: PALETTE.textMain }}
+            >
               Keahlian Teknologi
             </h2>
           </BlurFade>
 
-          {/* Tech Categories */}
-          <BlurFade delay={0.5} inView>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
-              {techCategories.map((category, idx) => (
+          <div className="grid md:grid-cols-2 gap-6 md:gap-8 items-stretch">
+            {[
+              {
+                title: "Frontend Development",
+                iconBg: "from-[#003333]/35 to-[#0b6648]/35",
+                icon: <Globe className="w-6 h-6" />,
+                desc: "Membangun antarmuka responsif dan interaktif.",
+                techs: [
+                  "HTML5",
+                  "CSS3",
+                  "JavaScript",
+                  "TypeScript",
+                  "React",
+                  "Next.js",
+                  "Tailwind CSS",
+                ],
+              },
+              {
+                title: "Mobile Development",
+                iconBg: "from-[#439960]/35 to-[#89cc89]/35",
+                icon: <Smartphone className="w-6 h-6" />,
+                desc: "Aplikasi mobile cross-platform performa tinggi.",
+                techs: ["Flutter", "Dart"],
+              },
+              {
+                title: "Backend & Database",
+                iconBg: "from-[#003333]/35 to-[#439960]/35",
+                icon: <Database className="w-6 h-6" />,
+                desc: "Backend robust & manajemen data efisien.",
+                techs: ["Java", "Python", "MySQL"],
+              },
+              {
+                title: "Design & Prototyping",
+                iconBg: "from-[#0b6648]/35 to-[#89cc89]/35",
+                icon: <Palette className="w-6 h-6" />,
+                desc: "UI/UX menarik dengan prototipe interaktif.",
+                techs: ["Figma"],
+              },
+            ].map((c, i) => (
+              <BlurFade key={c.title} inView delay={0.15 + i * 0.05}>
                 <Card
-                  key={idx}
-                  className="bg-white/40 backdrop-blur-sm border border-white/30 shadow-lg hover:shadow-xl transition-all duration-300"
+                  className="h-full border shadow-xl hover:shadow-2xl transition-[transform,box-shadow] duration-300 hover:scale-[1.01]"
+                  style={surface}
                 >
-                  <CardContent className="p-6">
+                  <CardContent className="p-6 md:p-7">
                     <div className="flex items-start gap-4">
-                      <div className="w-12 h-12 bg-black/10 rounded-xl flex items-center justify-center flex-shrink-0">
-                        {category.icon}
+                      <div
+                        className={`w-14 h-14 rounded-2xl flex items-center justify-center flex-shrink-0 bg-gradient-to-r ${c.iconBg}`}
+                      >
+                        <span
+                          className="text-[--green-light]"
+                          style={{ color: PALETTE.greenLight }}
+                        >
+                          {c.icon}
+                        </span>
                       </div>
-                      <div className="space-y-3">
-                        <h3 className="font-semibold text-black text-lg">
-                          {category.title}
+                      <div className="flex-1">
+                        <h3
+                          className="font-bold text-xl mb-2"
+                          style={{ color: PALETTE.textMain }}
+                        >
+                          {c.title}
                         </h3>
-                        <p className="text-sm text-gray-600 leading-relaxed">
-                          {category.description}
+                        <p
+                          className="text-[15px] mb-4"
+                          style={{ color: PALETTE.textMuted }}
+                        >
+                          {c.desc}
                         </p>
                         <div className="flex flex-wrap gap-2">
-                          {category.techs.map((tech, techIdx) => (
+                          {c.techs.map((t) => (
                             <span
-                              key={techIdx}
-                              className="px-2 py-1 bg-gray-100 text-black text-xs rounded-md font-medium border border-gray-200"
+                              key={t}
+                              className="px-3 py-1.5 text-sm rounded-lg font-medium border"
+                              style={{
+                                backgroundColor: "rgba(13,13,13,0.5)",
+                                color: PALETTE.textSoft,
+                                borderColor: `rgba(0,51,51,${OPACITY.border})`,
+                              }}
                             >
-                              {tech}
+                              {t}
                             </span>
                           ))}
                         </div>
@@ -815,113 +1472,297 @@ export default function HomePage() {
                     </div>
                   </CardContent>
                 </Card>
-              ))}
-            </div>
-          </BlurFade>
+              </BlurFade>
+            ))}
+          </div>
 
-          {/* Icon Cloud */}
-          <BlurFade delay={0.7} inView>
-            <div className="text-center space-y-4">
-              <div className="inline-flex items-center gap-2 px-4 py-2 bg-gray-100/50 backdrop-blur-sm rounded-full border border-gray-200/30">
-                <Zap className="w-4 h-4 text-black" />
-                <span className="text-sm font-medium text-black">
-                  Interactive Technology Stack
-                </span>
+          {/* ===== Icon Cloud ===== */}
+          <BlurFade inView delay={0.35}>
+            <Card
+              className="mt-8 border shadow-xl overflow-hidden"
+              style={surface}
+            >
+              <CardHeader className="pb-2">
+                <CardTitle
+                  className="text-lg md:text-xl"
+                  style={{ color: PALETTE.textMain }}
+                >
+                  Teknologi yang saya pakai — Icon Cloud
+                </CardTitle>
+                <CardDescription style={{ color: PALETTE.textMuted }}>
+                  Visualisasi ringkas tools & stack yang sering saya pakai.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="h-[260px] sm:h-[320px]">
+                  <IconCloudDemo />
+                </div>
+              </CardContent>
+            </Card>
+          </BlurFade>
+        </div>
+      </section>
+
+      {/* ====== CONTACT ====== */}
+      <section
+        id="contact"
+        className="reduce-flicker relative z-10 px-6 md:px-8 lg:px-12 py-16 md:py-20"
+        style={
+          {
+            contentVisibility: "auto",
+            containIntrinsicSize: "1200px 800px",
+          } as React.CSSProperties
+        }
+      >
+        <div className="mx-auto max-w-5xl">
+          <div className="text-center mb-12">
+            <BlurFade delay={0.15} inView>
+              <div className="relative inline-block">
+                <h2
+                  className="text-3xl md:text-4xl lg:text-5xl font-extrabold"
+                  style={{ color: PALETTE.textMain }}
+                >
+                  Mari Berkolaborasi
+                </h2>
+                <div
+                  className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-24 h-1 rounded-full"
+                  style={{ backgroundColor: PALETTE.greenLight }}
+                />
               </div>
-              <div className="flex justify-center">
-                <IconCloud images={techImages} />
-              </div>
-              <p className="text-sm text-gray-600 max-w-md mx-auto">
-                Klik dan drag untuk berinteraksi dengan teknologi yang saya
-                kuasai
+            </BlurFade>
+            <BlurFade delay={0.2} inView>
+              <p
+                className="text-lg mt-6 max-w-2xl mx-auto"
+                style={{ color: PALETTE.textMuted }}
+              >
+                Siap untuk diskusi proyek atau kolaborasi? Hubungi saya melalui
+                platform favorit Anda
               </p>
+            </BlurFade>
+          </div>
+
+          {/* Contact Grid */}
+          <div className="grid md:grid-cols-2 gap-6">
+            {[
+              {
+                title: "Email",
+                icon: Mail,
+                url: "mailto:arackerman05@gmail.com",
+                detail: "arackerman05@gmail.com",
+                description: "Untuk diskusi formal dan proposal kerja sama",
+                isPrimary: true,
+              },
+              {
+                title: "WhatsApp",
+                icon: MessageCircle,
+                url: "https://wa.me/6283132974120?text=Halo%20Abdur%20Rouf,%20saya%20tertarik%20dengan%20portfolio%20Anda",
+                detail: "+62 831-3297-4120",
+                description: "Chat langsung untuk komunikasi cepat",
+                isPrimary: true,
+              },
+              {
+                title: "LinkedIn",
+                icon: Linkedin,
+                url: "https://www.linkedin.com/in/abdur-rouf-59aa23298/",
+                detail: "Abdur Rouf",
+                description: "Terhubung untuk networking profesional",
+              },
+              {
+                title: "GitHub",
+                icon: Github,
+                url: "https://github.com/Arackerman05",
+                detail: "Arackerman05",
+                description: "Lihat kode dan kontribusi proyek saya",
+              },
+            ].map((contact, idx) => (
+              <BlurFade key={contact.title} delay={0.25 + idx * 0.1} inView>
+                <Card
+                  className={`group relative overflow-hidden border shadow-xl hover:shadow-2xl transition-all duration-500 hover:scale-105 cursor-pointer ${
+                    contact.isPrimary ? "md:col-span-1" : ""
+                  }`}
+                  style={surface}
+                  onClick={() => window.open(contact.url, "_blank")}
+                >
+                  {/* Background Gradient Animation */}
+                  <div
+                    className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500"
+                    style={{
+                      background: `linear-gradient(135deg, ${PALETTE.greenLight}10, ${PALETTE.greenMid}10)`,
+                    }}
+                  />
+
+                  <CardContent className="relative p-8">
+                    <div className="flex items-start gap-6">
+                      {/* Icon Container */}
+                      <div className="relative">
+                        <div
+                          className="w-16 h-16 rounded-2xl flex items-center justify-center group-hover:scale-110 group-hover:rotate-3 transition-all duration-300"
+                          style={{
+                            background: `linear-gradient(135deg, ${PALETTE.greenLight}20, ${PALETTE.greenMid}20)`,
+                          }}
+                        >
+                          <contact.icon
+                            className="w-8 h-8"
+                            style={{ color: PALETTE.greenLight }}
+                          />
+                        </div>
+                        {/* Pulse effect */}
+                        <div
+                          className="absolute -inset-2 rounded-2xl opacity-0 group-hover:opacity-100 group-hover:animate-ping transition-opacity duration-300"
+                          style={{ backgroundColor: `${PALETTE.greenLight}15` }}
+                        />
+                      </div>
+
+                      {/* Content */}
+                      <div className="flex-1">
+                        <h3
+                          className="font-bold text-xl mb-2 group-hover:text-[--green-light] transition-colors duration-300"
+                          style={{ color: PALETTE.textMain }}
+                        >
+                          {contact.title}
+                        </h3>
+                        <p
+                          className="font-mono text-sm mb-3 break-all"
+                          style={{ color: PALETTE.greenLight }}
+                        >
+                          {contact.detail}
+                        </p>
+                        <p
+                          className="text-sm leading-relaxed"
+                          style={{ color: PALETTE.textMuted }}
+                        >
+                          {contact.description}
+                        </p>
+                      </div>
+
+                      {/* Arrow Icon */}
+                      <div className="group-hover:translate-x-1 group-hover:-translate-y-1 transition-transform duration-300">
+                        <ChevronRight
+                          className="w-5 h-5"
+                          style={{ color: PALETTE.textMuted }}
+                        />
+                      </div>
+                    </div>
+                  </CardContent>
+
+                  {/* Highlight Border */}
+                  <div
+                    className="absolute inset-x-0 bottom-0 h-0.5 bg-gradient-to-r transform scale-x-0 group-hover:scale-x-100 transition-transform duration-500"
+                    style={{
+                      backgroundImage: `linear-gradient(90deg, ${PALETTE.greenLight}, ${PALETTE.greenMid})`,
+                    }}
+                  />
+                </Card>
+              </BlurFade>
+            ))}
+          </div>
+
+          {/* Call to Action */}
+          <BlurFade delay={0.6} inView>
+            <div className="mt-12 text-center">
+              <Card className="inline-block border shadow-xl" style={surface}>
+                <CardContent className="px-8 py-6">
+                  <div className="flex items-center gap-4">
+                    <div
+                      className="w-3 h-3 rounded-full animate-pulse"
+                      style={{ backgroundColor: PALETTE.greenLight }}
+                    />
+                    <span
+                      className="font-semibold text-lg"
+                      style={{ color: PALETTE.textMain }}
+                    >
+                      Waktu respon : Biasanya dalam 24 jam
+                    </span>
+                    <div
+                      className="w-3 h-3 rounded-full animate-pulse"
+                      style={{ backgroundColor: PALETTE.greenLight }}
+                    />
+                  </div>
+                </CardContent>
+              </Card>
             </div>
           </BlurFade>
-        </section>
+        </div>
+      </section>
 
-        {/* Contact Section */}
-        <section ref={contactRef} className="space-y-6">
-          <BlurFade delay={0.25} inView>
-            <h2 className="text-3xl font-bold text-black mb-6 flex items-center gap-3">
-              <div className="w-8 h-8 bg-sky-100 rounded-lg flex items-center justify-center">
-                <Phone className="w-5 h-5 text-sky-600" />
-              </div>
-              Kontak Saya
-            </h2>
-          </BlurFade>
-          <BlurFade delay={0.5} inView>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <Button
-                variant="outline"
-                className="flex items-center gap-3 p-6 h-auto bg-white/40 hover:bg-white/60 border border-white/30 transition-all duration-300"
-                onClick={() =>
-                  window.open("mailto:arackerman05@gmail.com", "_blank")
-                }
-              >
-                <Mail className="w-5 h-5 text-red-600" />
-                <div className="text-left">
-                  <div className="font-semibold text-black">Email</div>
-                  <div className="text-sm text-gray-600">
-                    arackerman05@gmail.com
-                  </div>
-                </div>
-              </Button>
-
-              <Button
-                variant="outline"
-                className="flex items-center gap-3 p-6 h-auto bg-white/40 hover:bg-white/60 border border-white/30 transition-all duration-300"
-                onClick={() =>
-                  window.open(
-                    "https://wa.me/6283132974120?text=Halo%20Abdur%20Rouf,%20saya%20tertarik%20dengan%20portfolio%20Anda",
-                    "_blank"
-                  )
-                }
-              >
-                <MessageCircle className="w-5 h-5 text-green-600" />
-                <div className="text-left">
-                  <div className="font-semibold text-black">WhatsApp</div>
-                  <div className="text-sm text-gray-600">+62 831-3297-4120</div>
-                </div>
-              </Button>
-
-              <Button
-                variant="outline"
-                className="flex items-center gap-3 p-6 h-auto bg-white/40 hover:bg-white/60 border border-white/30 transition-all duration-300"
-                onClick={() =>
-                  window.open(
-                    "https://www.linkedin.com/in/abdur-rouf-59aa23298/",
-                    "_blank"
-                  )
-                }
-              >
-                <Linkedin className="w-5 h-5 text-blue-600" />
-                <div className="text-left">
-                  <div className="font-semibold text-black">LinkedIn</div>
-                  <div className="text-sm text-gray-600">
-                    linkedin.com/in/abdur-rouf-59aa23298
-                  </div>
-                </div>
-              </Button>
-
-              <Button
-                variant="outline"
-                className="flex items-center gap-3 p-6 h-auto bg-white/40 hover:bg-white/60 border border-white/30 transition-all duration-300"
-                onClick={() =>
-                  window.open("https://github.com/Arackerman05", "_blank")
-                }
-              >
-                <Github className="w-5 h-5 text-gray-800" />
-                <div className="text-left">
-                  <div className="font-semibold text-black">GitHub</div>
-                  <div className="text-sm text-gray-600">
-                    github.com/Arackerman05
-                  </div>
-                </div>
-              </Button>
-            </div>
-          </BlurFade>
-        </section>
+      {/* ==== DOCK ==== */}
+      <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50">
+        <TooltipProvider>
+          <div
+            className="rounded-2xl border backdrop-blur-xl shadow-2xl p-0"
+            style={darkGlass}
+          >
+            <Dock
+              direction="middle"
+              className="!bg-transparent !p-0 !m-0 !border-0 !shadow-none gap-2"
+            >
+              {NAV_ITEMS.map(({ key, label, Icon }) => (
+                <DockIcon key={key} className="!m-0">
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button
+                        type="button"
+                        onClick={() => scrollToId(key)}
+                        aria-label={label}
+                        data-active={active === key}
+                        className={cn(
+                          buttonVariants({ variant: "ghost", size: "icon" }),
+                          "size-12 rounded-full",
+                          "!hover:bg-[#89cc89]/12 focus-visible:ring-0 focus:outline-none",
+                          "data-[active=true]:bg-[#89cc89]/10 data-[active=true]:ring-1 data-[active=true]:ring-[#89cc89]/25"
+                        )}
+                        style={{
+                          color:
+                            active === key
+                              ? PALETTE.greenLight
+                              : PALETTE.textMuted,
+                        }}
+                      >
+                        <Icon className="size-5" />
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent
+                      sideOffset={8}
+                      className="border"
+                      style={{
+                        backgroundColor: "rgba(13,13,13,0.92)",
+                        borderColor: `rgba(0,51,51,${OPACITY.border})`,
+                        color: PALETTE.textMain,
+                      }}
+                    >
+                      <p>{label}</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </DockIcon>
+              ))}
+            </Dock>
+          </div>
+        </TooltipProvider>
       </div>
+
+      {/* Global styles */}
+      <style jsx global>{`
+        :root {
+          --text-main: ${PALETTE.textMain};
+        }
+        html {
+          scroll-behavior: smooth;
+        }
+        body {
+          background-color: ${PALETTE.dark};
+          color: ${PALETTE.textMain};
+          font-feature-settings: "liga" 1, "calt" 1;
+        }
+        .reduce-flicker {
+          backface-visibility: hidden;
+          transform: translateZ(0);
+          will-change: transform, opacity;
+        }
+        /* batasi area repaint per section agar tidak memicu flash putih */
+        section.reduce-flicker {
+          contain: paint;
+        }
+      `}</style>
     </main>
   );
 }
