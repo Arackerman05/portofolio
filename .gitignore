@@ -1,1 +1,12 @@
-node_modules
+node_modules/
+.next/
+out/
+dist/
+.cache/
+coverage/
+.env
+.env.*
+!.env.example
+.vscode/
+*.log
+*.tsbuildinfo
